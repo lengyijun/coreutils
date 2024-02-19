@@ -441,14 +441,9 @@ fn get_input_type(path: &str) -> CatResult<InputType> {
 fn write_fast<R: FdReadable>(handle: &mut InputHandle<R>) -> CatResult<()> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    {
-        // If we're on Linux or Android, try to use the splice() system call
-        // for faster writing. If it works, we're done.
-        if !splice::write_fast_using_splice(handle, &stdout_lock)? {
-            return Ok(());
-        }
-    }
+    let stderr = io::stderr();
+    let mut stderr_lock = stderr.lock();
+
     // If we're not on Linux or Android, or the splice() call failed,
     // fall back on slower writing.
     let mut buf = [0; 1024 * 64];
@@ -457,6 +452,7 @@ fn write_fast<R: FdReadable>(handle: &mut InputHandle<R>) -> CatResult<()> {
             break;
         }
         stdout_lock.write_all(&buf[..n])?;
+        stderr_lock.write_all(&buf[..n])?;
     }
     Ok(())
 }
